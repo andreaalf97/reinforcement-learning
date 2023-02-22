@@ -81,12 +81,10 @@ function move(direction){
         var board = json["board"];
         var points = json["points"];
 
-        console.log(points)
-
-        // if (points == "-1"){
-        //     update(board, parseInt(localStorage['points']), "game", "points_counter")
-        //     document.getElementById("end-game-message").setAttribute("display", "flex")
-        // }
+        if (points == -1){
+            document.getElementById("end-game-message").setAttribute("style", "display: flex;")
+            document.onkeydown = null
+        }
 
         localStorage['board'] = board.join('|');
         localStorage['points'] = parseInt(localStorage['points']) + parseInt(points);

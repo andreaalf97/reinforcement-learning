@@ -7,13 +7,13 @@ def init_board() -> np.array:
     return add_random(board.copy())
 
 def is_game_over(board) -> bool:
-    if board.tolist() != shift_right(board)[0].tolist():
+    if board.tolist() != shift_right(board, check_game_over=False)[0].tolist():
         return False
-    if board.tolist() != shift_left(board)[0].tolist():
+    if board.tolist() != shift_left(board, check_game_over=False)[0].tolist():
         return False
-    if board.tolist() != shift_up(board)[0].tolist():
+    if board.tolist() != shift_up(board, check_game_over=False)[0].tolist():
         return False
-    if board.tolist() != shift_left(board)[0].tolist():
+    if board.tolist() != shift_left(board, check_game_over=False)[0].tolist():
         return False
     return True
 
@@ -30,7 +30,7 @@ def add_random(b_: np.array, init=2) -> np.array:
     board[selected[0]][selected[1]] = init
     return board
 
-def collapse_row_right(row_: list) -> Tuplef[list, int]:
+def collapse_row_right(row_: list) -> Tuple[list, int]:
     row = row_.copy()
 
     points = 0
@@ -61,7 +61,7 @@ def collapse_row_right(row_: list) -> Tuplef[list, int]:
     
     return row, points
 
-def shift_right(b_: np.array) -> Tuple[np.array, int]:
+def shift_right(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
     points = 0
     for row_num in range(len(board)):
@@ -69,11 +69,12 @@ def shift_right(b_: np.array) -> Tuple[np.array, int]:
         points += p
     if board.tolist() != b_.tolist():
         board = add_random(board)
-    if is_game_over(board):
-        return board, -1
+    if check_game_over:
+        if is_game_over(board):
+            return board, -1
     return board, points
 
-def shift_left(b_: np.array) -> Tuple[np.array, int]:
+def shift_left(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
     points = 0
     for row_num in range(len(board)):
@@ -83,11 +84,12 @@ def shift_left(b_: np.array) -> Tuple[np.array, int]:
         points += p
     if board.tolist() != b_.tolist():
         board = add_random(board)
-    # if is_game_over(board):
-    #     return board, -1
+    if check_game_over:
+        if is_game_over(board):
+            return board, -1
     return board, points
 
-def shift_down(b_: np.array) -> Tuple[np.array, int]:
+def shift_down(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
     points = 0
     for col_num in range(len(board[0])):
@@ -95,11 +97,12 @@ def shift_down(b_: np.array) -> Tuple[np.array, int]:
         points += p
     if board.tolist() != b_.tolist():
         board = add_random(board)
-    if is_game_over(board):
-        return board, -1
+    if check_game_over:
+        if is_game_over(board):
+            return board, -1
     return board, points
 
-def shift_up(b_: np.array) -> Tuple[np.array, int]:
+def shift_up(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
     points = 0
     for col_num in range(len(board[0])):
@@ -110,6 +113,7 @@ def shift_up(b_: np.array) -> Tuple[np.array, int]:
         points += p
     if board.tolist() != b_.tolist():
         board = add_random(board)
-    if is_game_over(board):
-        return board, -1
+    if check_game_over:
+        if is_game_over(board):
+            return board, -1
     return board, points
