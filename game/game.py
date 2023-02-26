@@ -2,6 +2,10 @@ import numpy as np
 from random import choice
 from typing import Tuple
 
+
+WRONG_MOVE_REWARD = 0
+GAME_END_REWARD = -1000
+
 def start() -> np.array:
     board = np.zeros([4, 4], "int64")
     return __add_random(board)
@@ -83,10 +87,10 @@ def right(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
     if board.tolist() != b_.tolist():
         board = __add_random(board)
     else:
-        points = -1
+        points = WRONG_MOVE_REWARD
     if check_game_over:
         if __is_game_over(board):
-            return board, 0, True
+            return board, GAME_END_REWARD, True
     return board, points, False
 
 def left(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
@@ -100,10 +104,10 @@ def left(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
     if board.tolist() != b_.tolist():
         board = __add_random(board)
     else:
-        points = -1
+        points = WRONG_MOVE_REWARD
     if check_game_over:
         if __is_game_over(board):
-            return board, 0, True
+            return board, GAME_END_REWARD, True
     return board, points, False
 
 def down(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
@@ -115,10 +119,10 @@ def down(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
     if board.tolist() != b_.tolist():
         board = __add_random(board)
     else:
-        points = -1
+        points = WRONG_MOVE_REWARD
     if check_game_over:
         if __is_game_over(board):
-            return board, 0, True
+            return board, GAME_END_REWARD, True
     return board, points, False
 
 def up(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
@@ -133,8 +137,8 @@ def up(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
     if board.tolist() != b_.tolist():
         board = __add_random(board)
     else:
-        points = -1
+        points = WRONG_MOVE_REWARD
     if check_game_over:
         if __is_game_over(board):
-            return board, 0, True
+            return board, GAME_END_REWARD, True
     return board, points, False
