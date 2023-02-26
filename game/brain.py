@@ -10,6 +10,8 @@ class FFN(torch.nn.Module):
         self.relu = torch.nn.ReLU()
         self.fc2 = torch.nn.Linear(self.hidden_size, self.n_actions)
 
+        # TODO: Fix the initialization. If I add this now the network will always generate
+        # the same output with any input tensor.
         # self.__init_weights(self.fc1)
         # self.__init_weights(self.fc2)
 

@@ -13,6 +13,7 @@ import json
 from typing import Tuple
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
 ACTIONS = {
     "right": right,
@@ -26,7 +27,7 @@ def board_to_state(board):
 
 def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
-        if not args.suppress_warnings:
+        if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
         return main_network, losses
     training_sample = random.sample(replay_memory, args.n_samples_to_train_on)
@@ -145,7 +146,7 @@ def main(args):
             ])
 
             if steps % args.update_main_network_every == 0:
-                if not args.suppress_warnings:
+                if args.log_training_events:
                     logger.warning("[M] Updating MAIN network")
                 main_network, losses = train_model(
                     main_network,
@@ -159,7 +160,7 @@ def main(args):
                 done = True
 
             if steps > args.update_target_network_every:
-                if not args.suppress_warnings:
+                if args.log_training_events:
                     logger.error("[T] Updating TARGET network")
                 target_network.load_state_dict(main_network.state_dict())
                 steps = 0
@@ -174,7 +175,7 @@ def main(args):
             logger.info(f"[{episode_number}] Memory size: {len(replay_memory)}")
             logger.info(f"[{episode_number}] Taken the best action {n_best_actions/(n_best_actions+n_random_actions)*100:.2f}% of the time")
     
-    if not args.suppress_warnings:
+    if args.log_training_events:
         logger.error("[T] Updating TARGET network")
     target_network.load_state_dict(main_network.state_dict())
 
@@ -183,6 +184,8 @@ def main(args):
     run_info["rewards"] = rewards
     run_info["losses"] = losses
     if not args.no_store:
+        if not os.path.exists(f"{args.store_run_at}"):
+            os.makedirs(f"{args.store_run_at}")
         logger.info(f"Storing run parameters at {args.store_run_at}/{base_file_name}.json")
         with open(f"{args.store_run_at}/{base_file_name}.json", 'w') as fp:
             json.dump(run_info, fp)
@@ -225,7 +228,7 @@ if __name__ == "__main__":
     parser.add_argument("--min-replay-size", default=1000, type=int, help="Minimum amount of samples to trigger training")
     parser.add_argument("--n-samples-to-train-on", default=1000, type=int, help="Samples used for every training step")
 
-    parser.add_argument("--suppress-warnings", default=False, action="store_true", help="Suppress all training messages")
+    parser.add_argument("--log-training-events", default=False, action="store_true", help="Prints a message every time a training event happens")
     parser.add_argument("--store-run-at", default="model_checkpoints", help="Where to store the training runs")
     parser.add_argument("--no-store", default=False, action="store_true", help="Don't store training parameters and trained model")
 
