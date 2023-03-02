@@ -94,4 +94,4 @@ For a full view on the parameters, run `python main.py --help`.
 |`--min-replay-size`|1000|The minimum size of the replay-memory before training can start|
 |`--epochs`|1|How many times training will go over the same randomly picked sample of replay-memory|
 |`--learning-rate`|0.7|The learning rate for the Bellman equation: `new_q = (1-lr)*(current_q) + (lr)*(new_q)`|
-|`--discount-factor`|0.618|The discount factor for the Bellman equation: new_q = reward + DF * max(Q | a)|
+|`--discount-factor`|0.618|The discount factor for the Bellman equation: `new_q = reward + DF * max(Q | a)`|

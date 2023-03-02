@@ -14,6 +14,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import pickle
 
 ACTIONS = {
     "right": right,
@@ -29,8 +30,8 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
     if len(replay_memory) < args.min_replay_size:
         if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
-        return main_network, losses
-    training_sample = random.sample(replay_memory, args.n_samples_to_train_on)
+        return losses
+    training_sample = random.sample(replay_memory, args.n_samples_to_train_on if args.n_samples_to_train_on <= len(replay_memory) else len(replay_memory))
     # Each sample in memory is: [current_state, action_name, new_state, reward, done]
 
     with torch.no_grad():
@@ -70,9 +71,8 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
 
     mean_loss = sum(ls)/len(ls)
     losses.append(mean_loss)
-    # logger.info(f"[LOSS] {mean_loss}")
 
-    return main_network, losses
+    return losses
 
 
 def main(args):
@@ -110,7 +110,8 @@ def main(args):
 
         total_episode_reward = 0
         current_episode_steps = 0
-        current_epsilon = args.epsilon / (1 + (args.decay_factor*episode_number))
+        # current_epsilon = args.epsilon / (1 + (args.decay_factor*episode_number))
+        current_epsilon = args.epsilon * pow(1 - args.decay_factor, episode_number)
         done = False
         board = start()
         current_state = board_to_state(board)
@@ -148,7 +149,7 @@ def main(args):
             if steps % args.update_main_network_every == 0:
                 if args.log_training_events:
                     logger.warning("[M] Updating MAIN network")
-                main_network, losses = train_model(
+                losses = train_model(
                     main_network,
                     replay_memory,
                     target_network,
@@ -191,6 +192,9 @@ def main(args):
             json.dump(run_info, fp)
         logger.info(f"Storing trained model at {args.store_run_at}/{base_file_name}.pt")
         torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}.pt")
+        logger.info(f"Storing run last memory at {args.store_run_at}/{base_file_name}_memory.pkl")
+        with open(f"{args.store_run_at}/{base_file_name}_memory.pkl", 'wb') as file:
+                pickle.dump(replay_memory, file)
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
     ax.plot(pd.Series([int(i) for i in run_info["rewards"]]).rolling(5).mean().dropna())
@@ -210,9 +214,9 @@ if __name__ == "__main__":
         description="Reinforcement learning Deep Q Netork to play the game '2048'.",
     )
     parser.add_argument("-t", "--update-target-network-every", default=1000, type=int, help="The amount of steps after which the target network is updated")
-    parser.add_argument("-m", "--update-main-network-every", default=16, type=int, help="The amount of steps after which the main network is updated")
-    parser.add_argument("-e", "--epsilon", default=.99, type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
-    parser.add_argument("-d", "--decay-factor", default=.1, type=float, help="The speed at which the epsilon factor decreases")
+    parser.add_argument("-m", "--update-main-network-every", default=32, type=int, help="The amount of steps after which the main network is updated")
+    parser.add_argument("-e", "--epsilon", default=1., type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
+    parser.add_argument("-d", "--decay-factor", default=.01, type=float, help="The speed at which the epsilon factor decreases")
     
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
     parser.add_argument("--max-moves-per-episode", default=400, type=int, help="How many moves are allowed per episode")
@@ -221,12 +225,12 @@ if __name__ == "__main__":
     parser.add_argument("--random-seed", default=0, type=int, help="The random seed to initialize all random number generators")
 
     parser.add_argument("--mini-batch-size", default=32, type=int, help="The size of the mini-batches to train the main network on")
-    parser.add_argument("--epochs", default=1, type=int, help="How many times the model will go through the same sample of states in a single training session")
+    parser.add_argument("--epochs", default=10, type=int, help="How many times the model will go through the same sample of states in a single training session")
 
     parser.add_argument("--learning-rate", default=.7, type=float, help="The learning rate for the Bellman equation")
     parser.add_argument("--discount-factor", default=.618, type=float, help="The discount factor for the Bellman equation")
     parser.add_argument("--min-replay-size", default=1000, type=int, help="Minimum amount of samples to trigger training")
-    parser.add_argument("--n-samples-to-train-on", default=1000, type=int, help="Samples used for every training step")
+    parser.add_argument("--n-samples-to-train-on", default=5000, type=int, help="Samples used for every training step")
 
     parser.add_argument("--log-training-events", default=False, action="store_true", help="Prints a message every time a training event happens")
     parser.add_argument("--store-run-at", default="model_checkpoints", help="Where to store the training runs")
@@ -236,5 +240,8 @@ if __name__ == "__main__":
 
     random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
+
+    logger.info("RUN PARAMETERS:")
+    logger.info(vars(args))
 
     main(args)
