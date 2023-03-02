@@ -32,7 +32,7 @@ def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
     # Linear models expect shape like [batch_size, x]
     return board.flatten()
 
-def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list) -> Tuple[torch.nn.Module, list]:
+def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list, args) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
         if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
@@ -41,9 +41,9 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
     # Each sample in memory is: [current_state, action_name, new_state, reward, done]
 
     with torch.no_grad():
-        current_states = torch.tensor([i[0].tolist() for i in training_sample], dtype=torch.float32)
+        current_states = torch.tensor([i[0].tolist() for i in training_sample], dtype=torch.float32).to("cuda" if args.cuda else "cpu")
         current_qs = main_network(current_states)
-        new_states = torch.tensor([i[2].tolist() for i in training_sample], dtype=torch.float32)
+        new_states = torch.tensor([i[2].tolist() for i in training_sample], dtype=torch.float32).to("cuda" if args.cuda else "cpu")
         target_qs = target_network(new_states)
 
     X, Y = [], []
@@ -55,7 +55,7 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
         action_index = list(ACTIONS.keys()).index(action_name)
         current_qs[index][action_index] = (1 - args.learning_rate) * current_qs[index][action_index] + args.learning_rate * target_q
 
-        X.append(torch.tensor(current_state, dtype=torch.float32))
+        X.append(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu"))
         Y.append(current_qs[index])
 
     dataloader = DataLoader(
@@ -88,11 +88,11 @@ def main(args):
 
     # Initialize the MAIN and TARGET networks
     if not args.conv:
-        main_network = FFN(16, 4, hidden_size=args.hidden_size)
-        target_network = FFN(16, 4, hidden_size=args.hidden_size)
+        main_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
+        target_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
     else:
-        main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size)
-        target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size)
+        main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
+        target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
 
     # Initialize both netoworks with the same weights
     target_network.load_state_dict(
@@ -140,7 +140,7 @@ def main(args):
                 n_best_actions += 1
                 with torch.no_grad():
                     # Use the network to extract the Q-values for this state
-                    q_values = main_network(torch.tensor(current_state, dtype=torch.float32).unsqueeze(dim=0))[0]
+                    q_values = main_network(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu").unsqueeze(dim=0))[0]
                     # Extract the action with the maximum Q-value
                     action_name = list(ACTIONS.keys())[int(torch.argmax(q_values))]
 
@@ -161,7 +161,8 @@ def main(args):
                     main_network,
                     replay_memory,
                     target_network,
-                    losses
+                    losses,
+                    args
                 )
 
             
@@ -244,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument("--log-training-events", default=False, action="store_true", help="Prints a message every time a training event happens")
     parser.add_argument("--store-run-at", default="model_checkpoints", help="Where to store the training runs")
     parser.add_argument("--no-store", default=False, action="store_true", help="Don't store training parameters and trained model")
+    parser.add_argument("--cuda", default=torch.cuda.is_available(), action="store_true", help="Train using GPU")
 
     args = parser.parse_args()
 
