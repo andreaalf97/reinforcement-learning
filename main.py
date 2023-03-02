@@ -1,5 +1,5 @@
 from game.game import start, get_available_actions, right, left, up, down
-from game.brain import FFN
+from game.brain import FFN, ConvBrain
 from game.data import StateDataset
 
 from argparse import ArgumentParser
@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import pickle
+import numpy as np
 
 ACTIONS = {
     "right": right,
@@ -23,8 +24,13 @@ ACTIONS = {
     "down": down,
 }
 
-def board_to_state(board):
-    return board.flatten().tolist()
+def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
+    assert isinstance(board, np.ndarray), f"Expected numpy.array for `board`, received {type(board)}"
+    if is_conv:
+        # Convolutions expect shape like [batch_size, n_channels, x, y]
+        return board[np.newaxis, ...]
+    # Linear models expect shape like [batch_size, x]
+    return board.flatten()
 
 def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
@@ -35,9 +41,9 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
     # Each sample in memory is: [current_state, action_name, new_state, reward, done]
 
     with torch.no_grad():
-        current_states = torch.tensor([i[0] for i in training_sample], dtype=torch.float32)
+        current_states = torch.tensor([i[0].tolist() for i in training_sample], dtype=torch.float32)
         current_qs = main_network(current_states)
-        new_states = torch.tensor([i[2] for i in training_sample], dtype=torch.float32)
+        new_states = torch.tensor([i[2].tolist() for i in training_sample], dtype=torch.float32)
         target_qs = target_network(new_states)
 
     X, Y = [], []
@@ -81,12 +87,14 @@ def main(args):
     base_file_name = f"{now.year:04d}_{now.month:02d}_{now.day:02d}_{now.hour:02d}_{now.minute:02d}"
 
     # Initialize the MAIN and TARGET networks
-    main_network = FFN(
-        16, 4, hidden_size=args.hidden_size
-    )
-    target_network = FFN(
-        16, 4, hidden_size=args.hidden_size
-    )
+    if not args.conv:
+        main_network = FFN(16, 4, hidden_size=args.hidden_size)
+        target_network = FFN(16, 4, hidden_size=args.hidden_size)
+    else:
+        main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size)
+        target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size)
+
+    # Initialize both netoworks with the same weights
     target_network.load_state_dict(
         main_network.state_dict()
     )
@@ -113,8 +121,8 @@ def main(args):
         # current_epsilon = args.epsilon / (1 + (args.decay_factor*episode_number))
         current_epsilon = args.epsilon * pow(1 - args.decay_factor, episode_number)
         done = False
-        board = start()
-        current_state = board_to_state(board)
+        board: np.array = start()
+        current_state = board_to_state(board, is_conv=args.conv)
 
         n_random_actions = 0
         n_best_actions = 0
@@ -136,10 +144,10 @@ def main(args):
                     # Extract the action with the maximum Q-value
                     action_name = list(ACTIONS.keys())[int(torch.argmax(q_values))]
 
-            assert current_state == board_to_state(board)
+            assert current_state.tolist() == board_to_state(board, is_conv=args.conv).tolist()
             action = ACTIONS[action_name]
             board, reward, done = action(board)
-            new_state = board_to_state(board)
+            new_state = board_to_state(board, is_conv=args.conv)
             total_episode_reward += reward
 
             replay_memory.append([
@@ -221,7 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
     parser.add_argument("--max-moves-per-episode", default=400, type=int, help="How many moves are allowed per episode")
     
-    parser.add_argument("--hidden-size", default=100, type=int, help="The hidden size of the neural network")
+    parser.add_argument("--hidden-size", default=32, type=int, help="The hidden size of the neural network")
+    parser.add_argument("--conv", default=False, action="store_true", help="Uses a convolutional NN as brain")
     parser.add_argument("--random-seed", default=0, type=int, help="The random seed to initialize all random number generators")
 
     parser.add_argument("--mini-batch-size", default=32, type=int, help="The size of the mini-batches to train the main network on")

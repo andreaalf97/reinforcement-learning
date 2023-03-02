@@ -87,7 +87,7 @@ For a full view on the parameters, run `python main.py --help`.
 |`--update-main-network-every`|16|After how many game steps the main target is trained|
 |`--episodes`|350|How many game episodes will be simulated to collect training samples|
 |`--max-moves-per-episode`|400|How many moves are allowed per episode|
-|`--hidden-size`|100|The size of model's hidden dimension|
+|`--hidden-size`|32|The size of model's hidden dimension|
 |`--random-seed`|0|The seed for all random number generators, for reproducibility purposes|
 |`--n-samples-to-train-on`|1000|How many (randomly picked from the replay memory) samples the model is trained on at each training step|
 |`--mini-batch-size`|32|The mini-batch size used for training|
