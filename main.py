@@ -24,28 +24,49 @@ ACTIONS = {
     "down": down,
 }
 
+TIMERS = {
+    "board_to_state": [],
+    "train": [],
+    "create_train_tensors": [],
+    "sample_memory": [],
+    "calculate_qs": [],
+    "episodes": [],
+}
+
+
 def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
+    start = datetime.now()
     assert isinstance(board, np.ndarray), f"Expected numpy.array for `board`, received {type(board)}"
     if is_conv:
         # Convolutions expect shape like [batch_size, n_channels, x, y]
-        return board[np.newaxis, ...]
+        out = board[np.newaxis, ...]
+        time = datetime.now() - start
+        TIMERS["board_to_state"].append(str(time))
+        return out
     # Linear models expect shape like [batch_size, x]
-    return board.flatten()
+    out = board.flatten()
+    return out
 
 def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list, args) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
         if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
         return losses
-    training_sample = random.sample(replay_memory, args.n_samples_to_train_on if args.n_samples_to_train_on <= len(replay_memory) else len(replay_memory))
-    # Each sample in memory is: [current_state, action_name, new_state, reward, done]
 
+    start_sample = datetime.now()
+    training_sample = random.sample(replay_memory, args.n_samples_to_train_on if args.n_samples_to_train_on <= len(replay_memory) else len(replay_memory))
+    TIMERS["sample_memory"].append(str(datetime.now() - start_sample))
+
+    start_create_tensors = datetime.now()
+    # Each sample in memory is: [current_state, action_name, new_state, reward, done]
     with torch.no_grad():
         current_states = torch.tensor([i[0].tolist() for i in training_sample], dtype=torch.float32).to("cuda" if args.cuda else "cpu")
         current_qs = main_network(current_states)
         new_states = torch.tensor([i[2].tolist() for i in training_sample], dtype=torch.float32).to("cuda" if args.cuda else "cpu")
         target_qs = target_network(new_states)
+    TIMERS["create_train_tensors"].append(str(datetime.now() - start_create_tensors))
 
+    start_calc_q = datetime.now()
     X, Y = [], []
     for index, (current_state, action_name, new_state, reward, done) in enumerate(training_sample):
         if done:
@@ -57,7 +78,9 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
 
         X.append(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu"))
         Y.append(current_qs[index])
+    TIMERS["calculate_qs"].append(str(datetime.now() - start_calc_q))
 
+    start_train = datetime.now()
     dataloader = DataLoader(
         StateDataset(X, Y),
         batch_size=args.mini_batch_size,
@@ -78,6 +101,7 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
     mean_loss = sum(ls)/len(ls)
     losses.append(mean_loss)
 
+    TIMERS["train"].append(str(datetime.now() - start_train))
     return losses
 
 
@@ -116,6 +140,7 @@ def main(args):
     logger.info(f"Running for {args.episodes} episodes..")
     for episode_number in range(args.episodes):
 
+        start_episode = datetime.now()
         total_episode_reward = 0
         current_episode_steps = 0
         # current_epsilon = args.epsilon / (1 + (args.decay_factor*episode_number))
@@ -179,6 +204,8 @@ def main(args):
 
         rewards.append(str(total_episode_reward))
 
+        TIMERS["episodes"].append(str(datetime.now() - start_episode))
+
         if episode_number % 10 == 0:
             logger.info(f"[{episode_number}] Episode completed with epsilon {current_epsilon:.3f}")
             logger.info(f"[{episode_number}] Avg reward: --[{sum([int(i) for i in rewards[-10:]])/10}]--")
@@ -193,6 +220,7 @@ def main(args):
     run_info["params"] = vars(args)
     run_info["rewards"] = rewards
     run_info["losses"] = losses
+    run_info["timers"] = TIMERS
     if not args.no_store:
         if not os.path.exists(f"{args.store_run_at}"):
             os.makedirs(f"{args.store_run_at}")
