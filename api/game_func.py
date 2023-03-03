@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Tuple
 
+WRONG_MOVE_REWARD = -1
 
 def init_board() -> np.array:
     board = np.zeros([4, 4], "int64")

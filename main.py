@@ -136,6 +136,8 @@ def main(args):
 
     rewards = []
     losses = []
+    episodes_total_steps = []
+    target_resets = []
 
     logger.info(f"Running for {args.episodes} episodes..")
     for episode_number in range(args.episodes):
@@ -158,14 +160,22 @@ def main(args):
             steps += 1
             current_episode_steps += 1
             
+            available_actions = get_available_actions(board)
             if random.random() < current_epsilon:
                 n_random_actions += 1
-                action_name = random.choice(list(ACTIONS.keys()))
+                action_name = random.choice(list([k for k in ACTIONS.keys() if k in available_actions]))
             else:
                 n_best_actions += 1
                 with torch.no_grad():
                     # Use the network to extract the Q-values for this state
                     q_values = main_network(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu").unsqueeze(dim=0))[0]
+
+                    # Set indices for unavailable moves to -inf
+                    missing_moves = [k for k in ACTIONS.keys() if k not in available_actions]
+                    missing_moves_indices = [i for i, k in enumerate(ACTIONS.keys()) if k in missing_moves]
+                    for ind in missing_moves_indices:
+                        q_values[ind] = -float('inf')
+                    
                     # Extract the action with the maximum Q-value
                     action_name = list(ACTIONS.keys())[int(torch.argmax(q_values))]
 
@@ -190,15 +200,19 @@ def main(args):
                     args
                 )
 
-            
-            if current_episode_steps > args.max_moves_per_episode:
+            training_started = len(replay_memory) >= args.min_replay_size
+            if current_episode_steps > (args.max_moves_per_episode if training_started else 400):
                 done = True
 
             if steps > args.update_target_network_every:
+                target_resets.append(episode_number)
                 if args.log_training_events:
                     logger.error("[T] Updating TARGET network")
                 target_network.load_state_dict(main_network.state_dict())
                 steps = 0
+
+            if done:
+                episodes_total_steps.append(current_episode_steps)
 
             current_state = new_state
 
@@ -221,6 +235,8 @@ def main(args):
     run_info["rewards"] = rewards
     run_info["losses"] = losses
     run_info["timers"] = TIMERS
+    run_info["episodes_total_steps"] = episodes_total_steps
+    run_info["target_reset_episodes"] = target_resets
     if not args.no_store:
         if not os.path.exists(f"{args.store_run_at}"):
             os.makedirs(f"{args.store_run_at}")
@@ -247,7 +263,7 @@ if __name__ == "__main__":
 
 
     parser = ArgumentParser(
-        prog="Deep2048",
+        prog="deep2048",
         description="Reinforcement learning Deep Q Netork to play the game '2048'.",
     )
     parser.add_argument("-t", "--update-target-network-every", default=1000, type=int, help="The amount of steps after which the target network is updated")

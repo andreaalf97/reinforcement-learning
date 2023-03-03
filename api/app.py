@@ -81,8 +81,8 @@ def left():
 
 @app.route("/model", methods=["POST"])
 def get_model_sugestion():
-    model = FFN(16, 4, hidden_size=100)
-    model.load_state_dict(torch.load("model_checkpoints/2023_02_26_20_22.pt"))
+    model = FFN(16, 4, hidden_size=32)
+    model.load_state_dict(torch.load("model_checkpoints/2023_03_02_23_56.pt"))
 
     board = [[int(i) for i in row] for row in request.json["board"]]
     board_tensor = torch.tensor(np.array(board).flatten().tolist(), dtype=torch.float32).unsqueeze(dim=0)

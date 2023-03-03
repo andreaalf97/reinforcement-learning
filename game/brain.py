@@ -15,14 +15,16 @@ class FFN(torch.nn.Module):
         # self.__init_weights(self.fc1)
         # self.__init_weights(self.fc2)
 
-
     def __init_weights(self, layer):
         if isinstance(layer, torch.nn.Linear):
             torch.nn.init.xavier_uniform_(layer.weight)
             layer.weight.data.fill_(0.)
 
+    def __normalize_input(self, x):
+        return torch.nn.functional.normalize(x)
 
     def forward(self, x):
+        x = self.__normalize_input(x)
         x = self.relu(self.fc1(x))
         x = self.fc2(x)
         return x
@@ -56,8 +58,11 @@ class ConvBrain(torch.nn.Module):
 
         self.relu = torch.nn.ReLU()
 
+    def __normalize_input(self, x):
+        return torch.nn.functional.normalize(x, dim=[-1, -2])
 
     def forward(self, x):
+        x = self.__normalize_input(x)
         x = self.relu(self.conv(x))
         x = x.view(x.shape[0], -1)
         x = self.relu(self.fc1(x))

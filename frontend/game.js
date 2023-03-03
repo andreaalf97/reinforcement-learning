@@ -24,7 +24,7 @@ function read_cached_board(){
 }
 
 function update(board, points, board_id, points_id){
-    document.getElementById(points_id).innerHTML = points
+    document.getElementById(points_id).innerHTML = "[" + localStorage['n_moves'] + "] " + points
 
     var board_html = document.getElementById(board_id)
 
@@ -54,6 +54,8 @@ function init(){
     .then(json => {
         var board = json[0];
         var points = json[1];
+
+        localStorage['n_moves'] = 0
 
         localStorage['board'] = board.join('|');
         localStorage['points'] = points;
@@ -85,20 +87,32 @@ function get_suggestion(){
         for (let i = 0; i < json["q_values"].length; i++){
             array.push(parseFloat(json["q_values"][i]))
         };
-        min = array[0]
-        max = array[0]
+        min = array[0];
+        min_i = 0;
+        max = array[0];
+        max_i = 0;
         for (let i = 1; i < array.length; i++){
-            if (array[i] < min){min = array[i];}
-            if (array[i] > max){max = array[i];}
+            if (array[i] < min){
+                min = array[i];
+                min_i = i;
+            }
+            if (array[i] > max){
+                max = array[i];
+                max_i = i;
+            }
         };
-        console.log(json["q_values"])
         for (let i = 0; i < array.length; i++){
             array[i] = (array[i] - min) / (max -  min) * 100
         };
         console.log(array)
 
         for (let i = 0; i < array.length; i++){
-            div.innerHTML += actions[i] + ": " + array[i].toFixed(2) + "<br/>" 
+            if (i == max_i){
+                div.innerHTML += '<span style="color: green;">' + actions[i] + ": " + array[i].toFixed(2) + "</span>" + "<br/>"
+            }
+            else {
+                div.innerHTML += actions[i] + ": " + array[i].toFixed(2) + "<br/>" 
+            }
         }
     });
 }
@@ -130,6 +144,8 @@ function move(direction){
 
         localStorage['board'] = board.join('|');
         localStorage['points'] = parseInt(localStorage['points']) + parseInt(points);
+
+        localStorage['n_moves'] = parseInt(localStorage['n_moves']) + 1
 
         update(board, parseInt(localStorage['points']), "game", "points_counter")
         get_suggestion()
