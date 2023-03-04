@@ -237,7 +237,7 @@ def main(args):
     run_info["timers"] = TIMERS
     run_info["episodes_total_steps"] = episodes_total_steps
     run_info["target_reset_episodes"] = target_resets
-    run_info["replay_memory"] = replay_memory
+    run_info["replay_memory"] = list(replay_memory)
     if not args.no_store:
         if not os.path.exists(f"{args.store_run_at}"):
             os.makedirs(f"{args.store_run_at}")
