@@ -268,7 +268,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-t", "--update-target-network-every", default=1000, type=int, help="The amount of steps after which the target network is updated")
     parser.add_argument("-m", "--update-main-network-every", default=32, type=int, help="The amount of steps after which the main network is updated")
-    parser.add_argument("-e", "--epsilon", default=1., type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
+    parser.add_argument("--epsilon", default=1., type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
     parser.add_argument("-d", "--decay-factor", default=.01, type=float, help="The speed at which the epsilon factor decreases")
     
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
@@ -279,9 +279,9 @@ if __name__ == "__main__":
     parser.add_argument("--random-seed", default=0, type=int, help="The random seed to initialize all random number generators")
 
     parser.add_argument("--mini-batch-size", default=32, type=int, help="The size of the mini-batches to train the main network on")
-    parser.add_argument("--epochs", default=10, type=int, help="How many times the model will go through the same sample of states in a single training session")
+    parser.add_argument("-e", "--epochs", default=10, type=int, help="How many times the model will go through the same sample of states in a single training session")
 
-    parser.add_argument("--learning-rate", default=.7, type=float, help="The learning rate for the Bellman equation")
+    parser.add_argument("-l", "--learning-rate", default=.7, type=float, help="The learning rate for the Bellman equation")
     parser.add_argument("--discount-factor", default=.618, type=float, help="The discount factor for the Bellman equation")
     parser.add_argument("--min-replay-size", default=1000, type=int, help="Minimum amount of samples to trigger training")
     parser.add_argument("--n-samples-to-train-on", default=5000, type=int, help="Samples used for every training step")
