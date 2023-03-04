@@ -230,6 +230,12 @@ def main(args):
         logger.error("[T] Updating TARGET network")
     target_network.load_state_dict(main_network.state_dict())
 
+    # Make replay memory serializable
+    for i in range(len(replay_memory)):
+        replay_memory[i][0] = replay_memory[i][0].tolist()
+        replay_memory[i][2] = replay_memory[i][2].tolist()
+    replay_memory = list(replay_memory)
+
     run_info = {}
     run_info["params"] = vars(args)
     run_info["rewards"] = rewards
@@ -237,7 +243,7 @@ def main(args):
     run_info["timers"] = TIMERS
     run_info["episodes_total_steps"] = episodes_total_steps
     run_info["target_reset_episodes"] = target_resets
-    run_info["replay_memory"] = list(replay_memory)
+    run_info["replay_memory"] = replay_memory
     if not args.no_store:
         if not os.path.exists(f"{args.store_run_at}"):
             os.makedirs(f"{args.store_run_at}")
