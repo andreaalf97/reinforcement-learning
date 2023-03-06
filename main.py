@@ -159,7 +159,7 @@ def main(args):
         board: np.array = start()
         current_state = board_to_state(board, is_conv=args.conv)
 
-        max_moves = max_moves_per_episode[episode_number]
+        max_moves = int(max_moves_per_episode[episode_number])
 
         n_random_actions = 0
         n_best_actions = 0
