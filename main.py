@@ -240,7 +240,7 @@ def main(args):
 
         TIMERS["episodes"].append(str(datetime.now() - start_episode))
 
-        if episode_number % 10 == 0:
+        if episode_number % int(args.episodes / 10) == 0:
             logger.info(f"[{episode_number}] Episode completed with epsilon {current_epsilon:.3f}")
             logger.info(f"[{episode_number}] Avg reward: --[{sum([int(i) for i in rewards[-10:]])/10}]--")
             logger.info(f"[{episode_number}] Memory size: {len(replay_memory)}")
