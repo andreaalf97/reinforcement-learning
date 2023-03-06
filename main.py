@@ -34,6 +34,9 @@ TIMERS = {
     "episodes": [],
 }
 
+def mean_random_moves(max_moves_allowed: int):
+    return 50 * (1 - math.pow(math.e, -(max_moves_allowed-110)/50)) + 110 if max_moves_allowed > 110 else max_moves_allowed
+
 
 def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
     start = datetime.now()
@@ -214,7 +217,7 @@ def main(args):
                     args
                 )
 
-            if (episode_number % args.checkpoint_every == 0) and (episode_number != 0):
+            if (episode_number % int(args.episodes / 5) == 0) and (episode_number != 0):
                 if not args.no_store:
                     if not os.path.exists(f"{args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt"):
                         logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt")
