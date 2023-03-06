@@ -234,6 +234,7 @@ def main(args):
     for i in range(len(replay_memory)):
         replay_memory[i][0] = replay_memory[i][0].tolist()
         replay_memory[i][2] = replay_memory[i][2].tolist()
+        replay_memory[i][3] = int(replay_memory[i][3])
     replay_memory = list(replay_memory)
 
     run_info = {}
