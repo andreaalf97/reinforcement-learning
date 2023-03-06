@@ -110,6 +110,10 @@ def main(args):
 
     now = datetime.now()
     base_file_name = f"{now.year:04d}_{now.month:02d}_{now.day:02d}_{now.hour:02d}_{now.minute:02d}"
+    if not args.no_store:
+        if not os.path.exists(f"{args.store_run_at}"):
+            os.makedirs(f"{args.store_run_at}")
+        os.makedirs(f"{args.store_run_at}/{base_file_name}")
 
     # Initialize the MAIN and TARGET networks
     if not args.conv:
@@ -210,6 +214,12 @@ def main(args):
                     args
                 )
 
+            if (episode_number % args.checkpoint_every == 0) and (episode_number != 0):
+                if not args.no_store:
+                    if not os.path.exists(f"{args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt"):
+                        logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt")
+                        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt")
+
             # training_started = len(replay_memory) >= args.min_replay_size
             if current_episode_steps > max_moves:
                 done = True
@@ -249,15 +259,13 @@ def main(args):
     run_info["episodes_total_steps"] = episodes_total_steps
     run_info["target_reset_episodes"] = target_resets
     if not args.no_store:
-        if not os.path.exists(f"{args.store_run_at}"):
-            os.makedirs(f"{args.store_run_at}")
-        logger.info(f"Storing run parameters at {args.store_run_at}/{base_file_name}.json")
-        with open(f"{args.store_run_at}/{base_file_name}.json", 'w') as fp:
+        logger.info(f"Storing run parameters at {args.store_run_at}/{base_file_name}/run_info.json")
+        with open(f"{args.store_run_at}/{base_file_name}/run_info.json", 'w') as fp:
             json.dump(run_info, fp)
-        logger.info(f"Storing trained model at {args.store_run_at}/{base_file_name}.pt")
-        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}.pt")
-        logger.info(f"Storing run last memory at {args.store_run_at}/{base_file_name}_memory.pkl")
-        with open(f"{args.store_run_at}/{base_file_name}_memory.pkl", 'wb') as file:
+        logger.info(f"Storing trained model at {args.store_run_at}/{base_file_name}/model.pt")
+        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}/model.pt")
+        logger.info(f"Storing run last memory at {args.store_run_at}/{base_file_name}/memory.pkl")
+        with open(f"{args.store_run_at}/{base_file_name}/memory.pkl", 'wb') as file:
                 pickle.dump(replay_memory, file)
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
@@ -303,6 +311,7 @@ if __name__ == "__main__":
     parser.add_argument("--log-training-events", default=False, action="store_true", help="Prints a message every time a training event happens")
     parser.add_argument("--store-run-at", default="model_checkpoints", help="Where to store the training runs")
     parser.add_argument("--no-store", default=False, action="store_true", help="Don't store training parameters and trained model")
+    parser.add_argument("--checkpoint-every", default=100, type=int, help="How often (# episodes) to store a checkpoint model")
     parser.add_argument("--cuda", default=torch.cuda.is_available(), action="store_true", help="Train using GPU")
 
     args = parser.parse_args()
