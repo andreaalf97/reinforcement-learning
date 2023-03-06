@@ -16,6 +16,7 @@ import pandas as pd
 import os
 import pickle
 import numpy as np
+import math
 
 ACTIONS = {
     "right": right,
@@ -134,6 +135,13 @@ def main(args):
     # - done
     replay_memory = deque(maxlen=args.max_memory)
 
+    # Create the list of max moves per episode following a sigmoid trend between min and max moves
+    def sigmoid(x):
+        return (1 / (1 + pow(math.e, -x))) * (args.max_moves_end - args.max_moves_start) + args.max_moves_start
+    max_moves_per_episode = [sigmoid(i/100) for i in range(-600, 600, int(1200/args.episodes))][:args.episodes]
+    while len(max_moves_per_episode) < args.episodes:
+        max_moves_per_episode.append(max_moves_per_episode[-1])
+
     rewards = []
     losses = []
     episodes_total_steps = []
@@ -150,6 +158,8 @@ def main(args):
         done = False
         board: np.array = start()
         current_state = board_to_state(board, is_conv=args.conv)
+
+        max_moves = max_moves_per_episode[episode_number]
 
         n_random_actions = 0
         n_best_actions = 0
@@ -200,8 +210,8 @@ def main(args):
                     args
                 )
 
-            training_started = len(replay_memory) >= args.min_replay_size
-            if current_episode_steps > (args.max_moves_per_episode if training_started else 400):
+            # training_started = len(replay_memory) >= args.min_replay_size
+            if current_episode_steps > max_moves:
                 done = True
 
             if steps > args.update_target_network_every:
@@ -224,6 +234,7 @@ def main(args):
             logger.info(f"[{episode_number}] Episode completed with epsilon {current_epsilon:.3f}")
             logger.info(f"[{episode_number}] Avg reward: --[{sum([int(i) for i in rewards[-10:]])/10}]--")
             logger.info(f"[{episode_number}] Memory size: {len(replay_memory)}")
+            logger.info(f"[{episode_number}] Max moves: {max_moves}")
             logger.info(f"[{episode_number}] Taken the best action {n_best_actions/(n_best_actions+n_random_actions)*100:.2f}% of the time")
     
     if args.log_training_events:
@@ -272,7 +283,9 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--decay-factor", default=.01, type=float, help="The speed at which the epsilon factor decreases")
     
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
-    parser.add_argument("--max-moves-per-episode", default=400, type=int, help="How many moves are allowed per episode")
+    # parser.add_argument("--max-moves-per-episode", default=-1, type=int, help="How many moves are allowed per episode")
+    parser.add_argument("--max-moves-start", default=100, type=int)
+    parser.add_argument("--max-moves-end", default=400, type=int)
     
     parser.add_argument("--hidden-size", default=32, type=int, help="The hidden size of the neural network")
     parser.add_argument("--conv", default=False, action="store_true", help="Uses a convolutional NN as brain")
