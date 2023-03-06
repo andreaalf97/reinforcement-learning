@@ -242,10 +242,12 @@ def main(args):
 
         if episode_number % int(args.episodes / 10) == 0:
             logger.info(f"[{episode_number}] Episode completed with epsilon {current_epsilon:.3f}")
-            logger.info(f"[{episode_number}] Avg reward: --[{sum([int(i) for i in rewards[-10:]])/10}]--")
+            logger.info(f"[{episode_number}] Avg reward: --[{sum([int(i) for i in rewards[-10:]])/10:.2f}]--")
             logger.info(f"[{episode_number}] Memory size: {len(replay_memory)}")
             logger.info(f"[{episode_number}] Max moves: {max_moves}")
+            logger.info(f"[{episode_number}] Avg moves: --[{sum([int(i) for i in episodes_total_steps[-10:]])/10:.2f}]--")
             logger.info(f"[{episode_number}] Taken the best action {n_best_actions/(n_best_actions+n_random_actions)*100:.2f}% of the time")
+            logger.info(f"---------")
     
     if args.log_training_events:
         logger.error("[T] Updating TARGET network")
@@ -306,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--learning-rate", default=.7, type=float, help="The learning rate for the Bellman equation")
     parser.add_argument("--discount-factor", default=.618, type=float, help="The discount factor for the Bellman equation")
     parser.add_argument("--min-replay-size", default=1000, type=int, help="Minimum amount of samples to trigger training")
-    parser.add_argument("--n-samples-to-train-on", default=5000, type=int, help="Samples used for every training step")
+    parser.add_argument("--n-samples-to-train-on", default=10_000, type=int, help="Samples used for every training step")
 
     parser.add_argument("--log-training-events", default=False, action="store_true", help="Prints a message every time a training event happens")
     parser.add_argument("--store-run-at", default="model_checkpoints", help="Where to store the training runs")
