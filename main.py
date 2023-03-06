@@ -132,7 +132,7 @@ def main(args):
     # - reward
     # - new state
     # - done
-    replay_memory = deque(maxlen=50_000)
+    replay_memory = deque(maxlen=args.max_memory)
 
     rewards = []
     losses = []
@@ -280,6 +280,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--mini-batch-size", default=32, type=int, help="The size of the mini-batches to train the main network on")
     parser.add_argument("-e", "--epochs", default=10, type=int, help="How many times the model will go through the same sample of states in a single training session")
+    parser.add_argument("--max-memory", default=10_000, type=int, help="The maximum size of the replay memory")
 
     parser.add_argument("-l", "--learning-rate", default=.7, type=float, help="The learning rate for the Bellman equation")
     parser.add_argument("--discount-factor", default=.618, type=float, help="The discount factor for the Bellman equation")
