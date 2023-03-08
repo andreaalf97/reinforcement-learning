@@ -6,7 +6,17 @@ from typing import Tuple
 WRONG_MOVE_REWARD = 0
 GAME_END_REWARD = -1000
 
-def start() -> np.array:
+def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
+    assert isinstance(board, np.ndarray), f"Expected numpy.array for `board`, received {type(board)}"
+    if is_conv:
+        # Convolutions expect shape like [batch_size, n_channels, x, y]
+        out = board[np.newaxis, ...]
+        return out
+    # Linear models expect shape like [batch_size, x]
+    out = board.flatten()
+    return out
+
+def start() -> np.ndarray:
     board = np.zeros([4, 4], "int64")
     return __add_random(board)
 
@@ -24,7 +34,7 @@ def get_available_actions(board: np.array) -> list:
 
 
 
-def __is_game_over(board: np.array) -> bool:
+def __is_game_over(board: np.ndarray) -> bool:
     if board.tolist() != right(board, check_game_over=False)[0].tolist():
         return False
     if board.tolist() != left(board, check_game_over=False)[0].tolist():
@@ -35,7 +45,7 @@ def __is_game_over(board: np.array) -> bool:
         return False
     return True
 
-def __add_random(b_: np.array, init=2) -> np.array:
+def __add_random(b_: np.ndarray, init=2) -> np.ndarray:
     board = b_.copy()
     available = []
     for row in range(len(board)):
@@ -78,7 +88,7 @@ def __collapse_row_right(row_: list) -> Tuple[list, int]:
     
     return row, points
 
-def right(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
+def right(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
     points = 0
     for row_num in range(len(board)):
@@ -93,7 +103,7 @@ def right(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
             return board, GAME_END_REWARD, True
     return board, points, False
 
-def left(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
+def left(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
     points = 0
     for row_num in range(len(board)):
@@ -110,7 +120,7 @@ def left(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
             return board, GAME_END_REWARD, True
     return board, points, False
 
-def down(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
+def down(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
     points = 0
     for col_num in range(len(board[0])):
@@ -125,7 +135,7 @@ def down(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
             return board, GAME_END_REWARD, True
     return board, points, False
 
-def up(b_: np.array, check_game_over=True) -> Tuple[np.array, int, bool]:
+def up(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
     points = 0
     for col_num in range(len(board[0])):
