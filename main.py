@@ -106,7 +106,7 @@ def main(args):
         if not os.path.exists(f"{args.store_run_at}/{base_folder_name}"):
             os.makedirs(f"{args.store_run_at}/{base_folder_name}")
 
-    logger.add(f"{args.store_run_at}/{base_folder_name}/run_info.json", encoding="utf8")
+    logger.add(f"{args.store_run_at}/{base_folder_name}/run_info.log", encoding="utf8")
 
     # Initialize the MAIN and TARGET networks
     if not args.conv:
