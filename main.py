@@ -1,6 +1,7 @@
-from game.game import start, get_available_actions, right, left, up, down
+from game.game import start, get_available_actions, right, left, up, down, board_to_state
 from game.brain import FFN, ConvBrain
 from game.data import StateDataset
+from game.memory import ReplayMemory
 
 from argparse import ArgumentParser
 import random
@@ -26,7 +27,6 @@ ACTIONS = {
 }
 
 TIMERS = {
-    "board_to_state": [],
     "train": [],
     "create_train_tensors": [],
     "sample_memory": [],
@@ -38,27 +38,14 @@ def mean_random_moves(max_moves_allowed: int):
     return 50 * (1 - math.pow(math.e, -(max_moves_allowed-110)/50)) + 110 if max_moves_allowed > 110 else max_moves_allowed
 
 
-def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
-    start = datetime.now()
-    assert isinstance(board, np.ndarray), f"Expected numpy.array for `board`, received {type(board)}"
-    if is_conv:
-        # Convolutions expect shape like [batch_size, n_channels, x, y]
-        out = board[np.newaxis, ...]
-        time = datetime.now() - start
-        TIMERS["board_to_state"].append(str(time))
-        return out
-    # Linear models expect shape like [batch_size, x]
-    out = board.flatten()
-    return out
-
-def train_model(main_network: torch.nn.Module, replay_memory: deque, target_network: torch.nn.Module, losses:list, args) -> Tuple[torch.nn.Module, list]:
+def train_model(main_network: torch.nn.Module, replay_memory: ReplayMemory, target_network: torch.nn.Module, losses:list, args) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
         if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
         return losses
 
     start_sample = datetime.now()
-    training_sample = random.sample(replay_memory, args.n_samples_to_train_on if args.n_samples_to_train_on <= len(replay_memory) else len(replay_memory))
+    training_sample = random.sample(replay_memory.get_memory(), args.n_samples_to_train_on if args.n_samples_to_train_on <= len(replay_memory) else len(replay_memory))
     TIMERS["sample_memory"].append(str(datetime.now() - start_sample))
 
     start_create_tensors = datetime.now()
@@ -112,11 +99,14 @@ def train_model(main_network: torch.nn.Module, replay_memory: deque, target_netw
 def main(args):
 
     now = datetime.now()
-    base_file_name = f"{now.year:04d}_{now.month:02d}_{now.day:02d}_{now.hour:02d}_{now.minute:02d}"
+    base_folder_name = f"{now.year:04d}_{now.month:02d}_{now.day:02d}_{now.hour:02d}_{now.minute:02d}"
     if not args.no_store:
         if not os.path.exists(f"{args.store_run_at}"):
             os.makedirs(f"{args.store_run_at}")
-        os.makedirs(f"{args.store_run_at}/{base_file_name}")
+        if not os.path.exists(f"{args.store_run_at}/{base_folder_name}"):
+            os.makedirs(f"{args.store_run_at}/{base_folder_name}")
+
+    logger.add(f"{args.store_run_at}/{base_folder_name}/run_info.json", encoding="utf8")
 
     # Initialize the MAIN and TARGET networks
     if not args.conv:
@@ -140,7 +130,7 @@ def main(args):
     # - reward
     # - new state
     # - done
-    replay_memory = deque(maxlen=args.max_memory)
+    replay_memory = ReplayMemory(args.max_memory, is_conv=args.conv)
 
     # Create the list of max moves per episode following a sigmoid trend between min and max moves
     def sigmoid(x):
@@ -202,9 +192,9 @@ def main(args):
             new_state = board_to_state(board, is_conv=args.conv)
             total_episode_reward += reward
 
-            replay_memory.append([
+            replay_memory.append((
                 current_state, action_name, new_state, reward, done
-            ])
+            ))
 
             if steps % args.update_main_network_every == 0:
                 if args.log_training_events:
@@ -219,9 +209,9 @@ def main(args):
 
             if (episode_number % int(args.episodes / 5) == 0) and (episode_number != 0):
                 if not args.no_store:
-                    if not os.path.exists(f"{args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt"):
-                        logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt")
-                        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}/checkpoint_{episode_number}.pt")
+                    if not os.path.exists(f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt"):
+                        logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt")
+                        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt")
 
             # training_started = len(replay_memory) >= args.min_replay_size
             if current_episode_steps > max_moves:
@@ -264,14 +254,14 @@ def main(args):
     run_info["episodes_total_steps"] = episodes_total_steps
     run_info["target_reset_episodes"] = target_resets
     if not args.no_store:
-        logger.info(f"Storing run parameters at {args.store_run_at}/{base_file_name}/run_info.json")
-        with open(f"{args.store_run_at}/{base_file_name}/run_info.json", 'w') as fp:
+        logger.info(f"Storing run parameters at {args.store_run_at}/{base_folder_name}/run_info.json")
+        with open(f"{args.store_run_at}/{base_folder_name}/run_info.json", 'w') as fp:
             json.dump(run_info, fp)
-        logger.info(f"Storing trained model at {args.store_run_at}/{base_file_name}/model.pt")
-        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_file_name}/model.pt")
-        logger.info(f"Storing run last memory at {args.store_run_at}/{base_file_name}/memory.pkl")
-        with open(f"{args.store_run_at}/{base_file_name}/memory.pkl", 'wb') as file:
-                pickle.dump(replay_memory, file)
+        logger.info(f"Storing trained model at {args.store_run_at}/{base_folder_name}/model.pt")
+        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_folder_name}/model.pt")
+        logger.info(f"Storing run last memory at {args.store_run_at}/{base_folder_name}/memory.pkl")
+        with open(f"{args.store_run_at}/{base_folder_name}/memory.pkl", 'wb') as file:
+                pickle.dump(replay_memory.get_memory(), file)
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
     ax.plot(pd.Series([int(i) for i in run_info["rewards"]]).rolling(5).mean().dropna())
@@ -293,7 +283,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--update-target-network-every", default=1000, type=int, help="The amount of steps after which the target network is updated")
     parser.add_argument("-m", "--update-main-network-every", default=32, type=int, help="The amount of steps after which the main network is updated")
     parser.add_argument("--epsilon", default=1., type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
-    parser.add_argument("-d", "--decay-factor", default=.01, type=float, help="The speed at which the epsilon factor decreases")
+    parser.add_argument("-d", "--decay-factor", default=.5, type=float, help="The speed at which the epsilon factor decreases")
     
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
     # parser.add_argument("--max-moves-per-episode", default=-1, type=int, help="How many moves are allowed per episode")
