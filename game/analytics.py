@@ -1,6 +1,23 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import timedelta
+from math import pow, e
+
+
+def mean_reward(max_moves):
+    if 0 <= max_moves < 25:
+        return (200/50) * max_moves - 1000
+    elif 25 <= max_moves < 100:
+        return (380/50) * max_moves - 1100
+    elif 100 <= max_moves < 150:
+        return (350/50) * max_moves - 1050
+    elif 150 <= max_moves < 200:
+        return (100/50) * max_moves - 300
+    elif 200 <= max_moves:
+        return (50/50) * max_moves - 100
+
+def mean_num_steps(max_moves):
+    return 50 * (1 - pow(e, -(max_moves-110)/50)) + 110 if max_moves >= 110 else max_moves
 
 def str_to_sec(delta: str):
     splits = delta.split(':')
