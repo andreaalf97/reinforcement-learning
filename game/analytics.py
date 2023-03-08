@@ -36,14 +36,22 @@ def plot_timers(timers: dict) -> None:
         ax.set_title(f"Timers for {key.upper()} [s]")
         fig.show()
 
-def plot_loss(losses: list) -> None:
-    fig, ax = plt.subplots(1, 1, figsize=(20, 8))
+def plot_loss(losses: list, window_size=1) -> None:
+    target_train_indices = [i for i, (loss, target_train) in enumerate(losses) if target_train]
+    smoothed_line = pd.Series([l for l, _ in losses]).rolling(window=window_size, center=True).mean().to_list()
+    fig, ax = plt.subplots(1, 1, figsize=(20, 10))
     ax.plot(
-        # [i for i, _ in enumerate(log["losses"])],
-        pd.Series(losses).rolling(20, center=True).mean().dropna(),
+        [i for i, l in enumerate(smoothed_line)],
+        [l for _, l in enumerate(smoothed_line)]
+        # pd.Series([l for l, t in run_info["losses"]]).rolling(10).mean().dropna()
     )
-    ax.set_title("Distribution on MAIN NETWORK loss over time")
-    fig.show();
+    ax.scatter(
+        target_train_indices,
+        [smoothed_line[i] for i, (loss, _) in enumerate(losses) if i in target_train_indices],
+        c='red'
+    )
+    ax.set_title("Loss")
+    fig.show()
 
 def plot_total_steps(episodes_total_steps: list, epsilon: float, decay_factor: float, target_reset_episodes: list, window=20) -> None:
     from math import pow

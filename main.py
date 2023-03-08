@@ -2,6 +2,7 @@ from game.game import start, get_available_actions, right, left, up, down, board
 from game.brain import FFN, ConvBrain
 from game.data import StateDataset
 from game.memory import ReplayMemory
+from game.analytics import mean_num_steps, mean_reward
 
 from argparse import ArgumentParser
 import random
@@ -116,6 +117,14 @@ def main(args):
         main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
         target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
 
+    if args.resume_from != "":
+        assert os.path.exists(f"{args.store_run_at}/{args.resume_from}"), f"Folder `{args.store_run_at}/{args.resume_from}` does not exist"
+        for _, _, file_names in os.walk(f"{args.store_run_at}/{args.resume_from}"):
+            all_models = [n for n in sorted(file_names) if '.pt' in n]
+            if 'model.pt' in all_models:
+                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/model.pt"))
+            else:
+                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/{all_models[-1]}"))
     # Initialize both netoworks with the same weights
     target_network.load_state_dict(
         main_network.state_dict()
@@ -206,18 +215,20 @@ def main(args):
                     losses,
                     args
                 )
+                losses[-1] = (losses[-1], False)
 
             if (episode_number % int(args.episodes / 5) == 0) and (episode_number != 0):
                 if not args.no_store:
-                    if not os.path.exists(f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt"):
-                        logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt")
-                        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number}.pt")
+                    if not os.path.exists(f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number:04d}.pt"):
+                        logger.warning(f"Storing checkpoint model at {args.store_run_at}/{base_folder_name}/checkpoint_{episode_number:04d}.pt")
+                        torch.save(target_network.state_dict(), f"{args.store_run_at}/{base_folder_name}/checkpoint_{episode_number:04d}.pt")
 
             # training_started = len(replay_memory) >= args.min_replay_size
             if current_episode_steps > max_moves:
                 done = True
 
             if steps > args.update_target_network_every:
+                losses[-1] = (losses[-1][0], True)
                 target_resets.append(episode_number)
                 if args.log_training_events:
                     logger.error("[T] Updating TARGET network")
@@ -249,6 +260,7 @@ def main(args):
     run_info = {}
     run_info["params"] = vars(args)
     run_info["rewards"] = rewards
+    run_info["max_moves"] = max_moves_per_episode
     run_info["losses"] = losses
     run_info["timers"] = TIMERS
     run_info["episodes_total_steps"] = episodes_total_steps
@@ -265,10 +277,24 @@ def main(args):
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
     ax.plot(pd.Series([int(i) for i in run_info["rewards"]]).rolling(5).mean().dropna())
-    ax.set_title(f"Reward over episodes. [MAX {max([int(i) for i in rewards])}]")
+    # ax.plot(
+    #     range(len(run_info["max_moves"])),
+    #     [mean_reward(m) + 1000 for m in run_info["max_moves"]]
+    # )
+    ax.set_title(f"Reward over episodes. [MAX {max([int(i) for i in run_info['rewards']])}]")
 
+    target_train_indices = [i for i, (loss, target_train) in enumerate(run_info["losses"]) if target_train]
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
-    ax.plot(pd.Series(run_info["losses"]).rolling(10).mean().dropna())
+    ax.plot(
+        [i for i, (_, _) in enumerate(run_info["losses"])],
+        [l for _, (l, _) in enumerate(run_info["losses"])]
+        # pd.Series([l for l, t in run_info["losses"]]).rolling(10).mean().dropna()
+    )
+    ax.scatter(
+        target_train_indices,
+        [loss for i, (loss, _) in enumerate(run_info["losses"]) if i in target_train_indices],
+        c='red'
+    )
     ax.set_title("Loss")
     plt.show()
 
@@ -280,10 +306,13 @@ if __name__ == "__main__":
         prog="deep2048",
         description="Reinforcement learning Deep Q Netork to play the game '2048'.",
     )
+
+    parser.add_argument("--resume-from", default="", help="Resume from the latest model in the given folder")
+
     parser.add_argument("-t", "--update-target-network-every", default=1000, type=int, help="The amount of steps after which the target network is updated")
     parser.add_argument("-m", "--update-main-network-every", default=32, type=int, help="The amount of steps after which the main network is updated")
     parser.add_argument("--epsilon", default=1., type=float, help="The starting epsilon parameter for the epsilon-greedy policy")
-    parser.add_argument("-d", "--decay-factor", default=.5, type=float, help="The speed at which the epsilon factor decreases")
+    parser.add_argument("-d", "--decay-factor", default=.1, type=float, help="The speed at which the epsilon factor decreases")
     
     parser.add_argument("--episodes", default=350, type=int, help="How many games to play during training")
     # parser.add_argument("--max-moves-per-episode", default=-1, type=int, help="How many moves are allowed per episode")
