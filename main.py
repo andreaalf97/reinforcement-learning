@@ -1,4 +1,4 @@
-from game.game import start, get_available_actions, right, left, up, down, board_to_state
+from game.game import GameSimulator, generate_max_moves_list
 from game.brain import FFN, ConvBrain
 from game.data import StateDataset
 from game.memory import ReplayMemory
@@ -6,7 +6,6 @@ from game.analytics import mean_num_steps, mean_reward
 
 from argparse import ArgumentParser
 import random
-from collections import deque
 from loguru import logger
 import torch
 from torch.utils.data import DataLoader
@@ -17,17 +16,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import pickle
-import numpy as np
 import math
+from typing import Dict
 
-ACTIONS = {
-    "right": right,
-    "left": left,
-    "up": up,
-    "down": down,
-}
 
-TIMERS = {
+TIMERS: Dict[str, list] = {
     "train": [],
     "create_train_tensors": [],
     "sample_memory": [],
@@ -38,8 +31,31 @@ TIMERS = {
 def mean_random_moves(max_moves_allowed: int):
     return 50 * (1 - math.pow(math.e, -(max_moves_allowed-110)/50)) + 110 if max_moves_allowed > 110 else max_moves_allowed
 
+def init_networks(args):
+    # Initialize the MAIN and TARGET networks
+    if not args.conv:
+        main_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
+        target_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
+    else:
+        main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
+        target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
 
-def train_model(main_network: torch.nn.Module, replay_memory: ReplayMemory, target_network: torch.nn.Module, losses:list, args) -> Tuple[torch.nn.Module, list]:
+    if args.resume_from != "":
+        assert os.path.exists(f"{args.store_run_at}/{args.resume_from}"), f"Folder `{args.store_run_at}/{args.resume_from}` does not exist"
+        for _, _, file_names in os.walk(f"{args.store_run_at}/{args.resume_from}"):
+            all_models = [n for n in sorted(file_names) if '.pt' in n]
+            if 'model.pt' in all_models:
+                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/model.pt"))
+            else:
+                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/{all_models[-1]}"))
+    # Initialize both netoworks with the same weights
+    target_network.load_state_dict(
+        main_network.state_dict()
+    )
+    return main_network, target_network
+
+
+def train_model(main_network: torch.nn.Module, replay_memory: ReplayMemory, target_network: torch.nn.Module, losses:list, args, action_order=["right", "left", "up", "down"]) -> Tuple[torch.nn.Module, list]:
     if len(replay_memory) < args.min_replay_size:
         if args.log_training_events:
             logger.warning(f"SKIPPING TRAINING - Memory size {len(replay_memory)}")
@@ -65,7 +81,7 @@ def train_model(main_network: torch.nn.Module, replay_memory: ReplayMemory, targ
             target_q = reward
         else:
             target_q = reward + args.discount_factor * torch.max(target_qs[index])
-        action_index = list(ACTIONS.keys()).index(action_name)
+        action_index = action_order.index(action_name)
         current_qs[index][action_index] = (1 - args.learning_rate) * current_qs[index][action_index] + args.learning_rate * target_q
 
         X.append(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu"))
@@ -109,26 +125,7 @@ def main(args):
 
     logger.add(f"{args.store_run_at}/{base_folder_name}/run_info.log", encoding="utf8")
 
-    # Initialize the MAIN and TARGET networks
-    if not args.conv:
-        main_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
-        target_network = FFN(16, 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
-    else:
-        main_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
-        target_network = ConvBrain((4, 4), 4, hidden_size=args.hidden_size).to("cuda" if args.cuda else "cpu")
-
-    if args.resume_from != "":
-        assert os.path.exists(f"{args.store_run_at}/{args.resume_from}"), f"Folder `{args.store_run_at}/{args.resume_from}` does not exist"
-        for _, _, file_names in os.walk(f"{args.store_run_at}/{args.resume_from}"):
-            all_models = [n for n in sorted(file_names) if '.pt' in n]
-            if 'model.pt' in all_models:
-                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/model.pt"))
-            else:
-                main_network.load_state_dict(torch.load(f"{args.store_run_at}/{args.resume_from}/{all_models[-1]}"))
-    # Initialize both netoworks with the same weights
-    target_network.load_state_dict(
-        main_network.state_dict()
-    )
+    main_network, target_network = init_networks(args)
 
     # The amount of steps played in the game
     steps = 0
@@ -139,14 +136,9 @@ def main(args):
     # - reward
     # - new state
     # - done
-    replay_memory = ReplayMemory(args.max_memory, is_conv=args.conv)
+    replay_memory = ReplayMemory(args)
 
-    # Create the list of max moves per episode following a sigmoid trend between min and max moves
-    def sigmoid(x):
-        return (1 / (1 + pow(math.e, -x))) * (args.max_moves_end - args.max_moves_start) + args.max_moves_start
-    max_moves_per_episode = [sigmoid(i/100) for i in range(-600, 600, int(1200/args.episodes))][:args.episodes]
-    while len(max_moves_per_episode) < args.episodes:
-        max_moves_per_episode.append(max_moves_per_episode[-1])
+    max_moves_per_episode = generate_max_moves_list(args)
 
     rewards = []
     losses = []
@@ -162,8 +154,8 @@ def main(args):
         # current_epsilon = args.epsilon / (1 + (args.decay_factor*episode_number))
         current_epsilon = args.epsilon * pow(1 - args.decay_factor, episode_number)
         done = False
-        board: np.array = start()
-        current_state = board_to_state(board, is_conv=args.conv)
+        game = GameSimulator(int(max_moves_per_episode[0]), is_conv=args.conv)
+        current_state = game.board_to_state()
 
         max_moves = int(max_moves_per_episode[episode_number])
 
@@ -176,10 +168,10 @@ def main(args):
             steps += 1
             current_episode_steps += 1
             
-            available_actions = get_available_actions(board)
+            available_actions = game.get_available_actions()
             if random.random() < current_epsilon:
                 n_random_actions += 1
-                action_name = random.choice(list([k for k in ACTIONS.keys() if k in available_actions]))
+                action_name = random.choice(list([k for k in game.actions.keys() if k in available_actions]))
             else:
                 n_best_actions += 1
                 with torch.no_grad():
@@ -187,18 +179,17 @@ def main(args):
                     q_values = main_network(torch.tensor(current_state, dtype=torch.float32).to("cuda" if args.cuda else "cpu").unsqueeze(dim=0))[0]
 
                     # Set indices for unavailable moves to -inf
-                    missing_moves = [k for k in ACTIONS.keys() if k not in available_actions]
-                    missing_moves_indices = [i for i, k in enumerate(ACTIONS.keys()) if k in missing_moves]
+                    missing_moves = [k for k in game.actions.keys()  if k not in available_actions]
+                    missing_moves_indices = [i for i, k in enumerate(game.actions.keys() ) if k in missing_moves]
                     for ind in missing_moves_indices:
                         q_values[ind] = -float('inf')
                     
                     # Extract the action with the maximum Q-value
-                    action_name = list(ACTIONS.keys())[int(torch.argmax(q_values))]
+                    action_name = list(game.actions.keys() )[int(torch.argmax(q_values))]
 
-            assert current_state.tolist() == board_to_state(board, is_conv=args.conv).tolist()
-            action = ACTIONS[action_name]
-            board, reward, done = action(board)
-            new_state = board_to_state(board, is_conv=args.conv)
+            assert current_state.tolist() == game.board_to_state().tolist()
+            reward, done = game.move(action_name)
+            new_state = game.board_to_state()
             total_episode_reward += reward
 
             replay_memory.append((
