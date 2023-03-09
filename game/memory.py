@@ -1,14 +1,14 @@
-from collections import deque
 import random
-from loguru import logger
+from collections import deque
 from typing import Tuple
+
 import pandas as pd
+from loguru import logger
+
 from game.game import GameSimulator
 
+ACTIONS = ["right", "left", "up", "down"]
 
-ACTIONS = [
-    "right", "left", "up", "down"
-]
 
 class ReplayMemory:
     def __init__(self, args) -> None:
@@ -18,7 +18,9 @@ class ReplayMemory:
         self.__replay_memory, self.__info = self.__init_replay_memory()
 
         m, s = self.__mean_std_steps(self.__info["steps_to_complete_game"])
-        logger.info(f"[RM] Filled initial memory in {self.__info['episodes_simulated']} episodes [{m:.0f} ± {s:.0f} s/e].")
+        logger.info(
+            f"[RM] Filled initial memory in {self.__info['episodes_simulated']} episodes [{m:.0f} ± {s:.0f} s/e]."
+        )
         logger.success("[RM] Done.")
 
     def append(self, el):
@@ -29,7 +31,7 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.__replay_memory)
-        
+
     def __init_replay_memory(self) -> Tuple[deque, dict]:
         replay_memory = deque(maxlen=self.args.max_memory)
         info = {
@@ -40,7 +42,9 @@ class ReplayMemory:
         while len(replay_memory) < self.args.max_memory:
             if len(replay_memory) % int(self.args.max_memory / 10) < 100:
                 m, s = self.__mean_std_steps(info["steps_to_complete_game"])
-                logger.info(f"[RM] Mem size {len(replay_memory)}, mean steps {m:.2f} ± {s:.2f}")
+                logger.info(
+                    f"[RM] Mem size {len(replay_memory)}, mean steps {m:.2f} ± {s:.2f}"
+                )
             game = GameSimulator(self.args.max_moves_start, is_conv=self.args.conv)
             board = game.board_to_state()
 
@@ -55,7 +59,6 @@ class ReplayMemory:
                 replay_memory.append((board, action_name, new_board, reward, done))
                 board = new_board
 
-
             info["episodes_simulated"] += 1
             info["steps_to_complete_game"].append(n_steps)
 
@@ -65,8 +68,3 @@ class ReplayMemory:
     def __mean_std_steps(self, steps: list) -> Tuple[float, float]:
         s = pd.Series(steps, dtype="float32")
         return s.mean(), s.std()
-
-
-
-
-

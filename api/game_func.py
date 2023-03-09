@@ -1,11 +1,14 @@
-import numpy as np
 from typing import Tuple
 
+import numpy as np
+
 WRONG_MOVE_REWARD = -1
+
 
 def init_board() -> np.array:
     board = np.zeros([4, 4], "int64")
     return add_random(board.copy())
+
 
 def is_game_over(board) -> bool:
     if board.tolist() != shift_right(board, check_game_over=False)[0].tolist():
@@ -18,18 +21,21 @@ def is_game_over(board) -> bool:
         return False
     return True
 
+
 def add_random(b_: np.array, init=2) -> np.array:
     board = b_.copy()
     from random import choice
+
     available = []
     for row in range(len(board)):
         for col in range(len(board[0])):
             if board[row][col] == 0:
                 available.append((row, col))
-    
+
     selected = choice(available)
     board[selected[0]][selected[1]] = init
     return board
+
 
 def collapse_row_right(row_: list) -> Tuple[list, int]:
     row = row_.copy()
@@ -39,7 +45,7 @@ def collapse_row_right(row_: list) -> Tuple[list, int]:
     i = len(row) - 1
     while i > 0:
         if row[i] != 0:
-            for j in range(i-1, -1, -1):
+            for j in range(i - 1, -1, -1):
                 if row[i] == row[j]:
                     row[i] = row[i] + row[j]
                     points += row[i]
@@ -55,12 +61,13 @@ def collapse_row_right(row_: list) -> Tuple[list, int]:
 
         if row[i] == 0 and found_item:
             for j in range(i, 0, -1):
-                row[j] = row[j-1]
+                row[j] = row[j - 1]
             row[0] = 0
 
         found_item = row[i] != 0
-    
+
     return row, points
+
 
 def shift_right(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
@@ -74,6 +81,7 @@ def shift_right(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
         if is_game_over(board):
             return board, -1
     return board, points
+
 
 def shift_left(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
@@ -90,6 +98,7 @@ def shift_left(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
             return board, -1
     return board, points
 
+
 def shift_down(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()
     points = 0
@@ -102,6 +111,7 @@ def shift_down(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
         if is_game_over(board):
             return board, -1
     return board, points
+
 
 def shift_up(b_: np.array, check_game_over=True) -> Tuple[np.array, int]:
     board = b_.copy()

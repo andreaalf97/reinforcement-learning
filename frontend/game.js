@@ -42,7 +42,7 @@ function update(board, points, board_id, points_id){
             }
             bg_color = default_backgrounds[board[i][j]] ?? "white";
             element.setAttribute("style", "background-color: " + bg_color);
-            
+
         }
     }
 
@@ -111,7 +111,7 @@ function get_suggestion(){
                 div.innerHTML += '<span style="color: green;">' + actions[i] + ": " + array[i].toFixed(2) + "</span>" + "<br/>"
             }
             else {
-                div.innerHTML += actions[i] + ": " + array[i].toFixed(2) + "<br/>" 
+                div.innerHTML += actions[i] + ": " + array[i].toFixed(2) + "<br/>"
             }
         }
     });

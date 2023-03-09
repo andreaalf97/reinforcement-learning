@@ -1,13 +1,16 @@
-import numpy as np
 from random import choice
 from typing import Tuple
 
+import numpy as np
 
 WRONG_MOVE_REWARD = 0
 GAME_END_REWARD = -1000
 
+
 def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
-    assert isinstance(board, np.ndarray), f"Expected numpy.array for `board`, received {type(board)}"
+    assert isinstance(
+        board, np.ndarray
+    ), f"Expected numpy.array for `board`, received {type(board)}"
     if is_conv:
         # Convolutions expect shape like [batch_size, n_channels, x, y]
         out = board[np.newaxis, ...]
@@ -16,9 +19,11 @@ def board_to_state(board: np.ndarray, is_conv=False) -> np.ndarray:
     out = board.flatten()
     return out
 
+
 def start() -> np.ndarray:
     board = np.zeros([4, 4], "int64")
     return __add_random(board)
+
 
 def get_available_actions(board: np.array) -> list:
     available_actions = []
@@ -33,7 +38,6 @@ def get_available_actions(board: np.array) -> list:
     return available_actions
 
 
-
 def __is_game_over(board: np.ndarray) -> bool:
     if board.tolist() != right(board, check_game_over=False)[0].tolist():
         return False
@@ -45,6 +49,7 @@ def __is_game_over(board: np.ndarray) -> bool:
         return False
     return True
 
+
 def __add_random(b_: np.ndarray, init=2) -> np.ndarray:
     board = b_.copy()
     available = []
@@ -52,10 +57,11 @@ def __add_random(b_: np.ndarray, init=2) -> np.ndarray:
         for col in range(len(board[0])):
             if board[row][col] == 0:
                 available.append((row, col))
-    
+
     selected = choice(available)
     board[selected[0]][selected[1]] = init
     return board
+
 
 def __collapse_row_right(row_: list) -> Tuple[list, int]:
     row = row_.copy()
@@ -65,7 +71,7 @@ def __collapse_row_right(row_: list) -> Tuple[list, int]:
     i = len(row) - 1
     while i > 0:
         if row[i] != 0:
-            for j in range(i-1, -1, -1):
+            for j in range(i - 1, -1, -1):
                 if row[i] == row[j]:
                     row[i] = row[i] + row[j]
                     points += row[i]
@@ -81,12 +87,13 @@ def __collapse_row_right(row_: list) -> Tuple[list, int]:
 
         if row[i] == 0 and found_item:
             for j in range(i, 0, -1):
-                row[j] = row[j-1]
+                row[j] = row[j - 1]
             row[0] = 0
 
         found_item = row[i] != 0
-    
+
     return row, points
+
 
 def right(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
@@ -102,6 +109,7 @@ def right(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
         if __is_game_over(board):
             return board, GAME_END_REWARD, True
     return board, points, False
+
 
 def left(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
@@ -120,6 +128,7 @@ def left(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
             return board, GAME_END_REWARD, True
     return board, points, False
 
+
 def down(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()
     points = 0
@@ -134,6 +143,7 @@ def down(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
         if __is_game_over(board):
             return board, GAME_END_REWARD, True
     return board, points, False
+
 
 def up(b_: np.ndarray, check_game_over=True) -> Tuple[np.ndarray, int, bool]:
     board = b_.copy()

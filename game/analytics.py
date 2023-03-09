@@ -1,27 +1,34 @@
+from math import e, pow
+
 import matplotlib.pyplot as plt
 import pandas as pd
-from datetime import timedelta
-from math import pow, e
 
 
 def mean_reward(max_moves):
     if 0 <= max_moves < 25:
-        return (200/50) * max_moves - 1000
+        return (200 / 50) * max_moves - 1000
     elif 25 <= max_moves < 100:
-        return (380/50) * max_moves - 1100
+        return (380 / 50) * max_moves - 1100
     elif 100 <= max_moves < 150:
-        return (350/50) * max_moves - 1050
+        return (350 / 50) * max_moves - 1050
     elif 150 <= max_moves < 200:
-        return (100/50) * max_moves - 300
+        return (100 / 50) * max_moves - 300
     elif 200 <= max_moves:
-        return (50/50) * max_moves - 100
+        return (50 / 50) * max_moves - 100
+
 
 def mean_num_steps(max_moves):
-    return 50 * (1 - pow(e, -(max_moves-110)/50)) + 110 if max_moves >= 110 else max_moves
+    return (
+        50 * (1 - pow(e, -(max_moves - 110) / 50)) + 110
+        if max_moves >= 110
+        else max_moves
+    )
+
 
 def str_to_sec(delta: str):
-    splits = delta.split(':')
+    splits = delta.split(":")
     return (float(splits[0]) * 60 * 60) + (float(splits[1]) * 60) + float(splits[2])
+
 
 def plot_timers(timers: dict) -> None:
     for key in timers.keys():
@@ -36,9 +43,17 @@ def plot_timers(timers: dict) -> None:
         ax.set_title(f"Timers for {key.upper()} [s]")
         fig.show()
 
+
 def plot_loss(losses: list, window_size=1) -> None:
-    target_train_indices = [i for i, (loss, target_train) in enumerate(losses) if target_train]
-    smoothed_line = pd.Series([l for l, _ in losses]).rolling(window=window_size, center=True).mean().to_list()
+    target_train_indices = [
+        i for i, (loss, target_train) in enumerate(losses) if target_train
+    ]
+    smoothed_line = (
+        pd.Series([l for l, _ in losses])
+        .rolling(window=window_size, center=True)
+        .mean()
+        .to_list()
+    )
     fig, ax = plt.subplots(1, 1, figsize=(20, 10))
     ax.plot(
         [i for i, l in enumerate(smoothed_line)],
@@ -47,32 +62,61 @@ def plot_loss(losses: list, window_size=1) -> None:
     )
     ax.scatter(
         target_train_indices,
-        [smoothed_line[i] for i, (loss, _) in enumerate(losses) if i in target_train_indices],
-        c='red'
+        [
+            smoothed_line[i]
+            for i, (loss, _) in enumerate(losses)
+            if i in target_train_indices
+        ],
+        c="red",
     )
     ax.set_title("Loss")
     fig.show()
 
-def plot_total_steps(episodes_total_steps: list, epsilon: float, decay_factor: float, target_reset_episodes: list, window=20) -> None:
+
+def plot_total_steps(
+    episodes_total_steps: list,
+    epsilon: float,
+    decay_factor: float,
+    target_reset_episodes: list,
+    window=20,
+) -> None:
     from math import pow
+
     fig, (ax, ax_decay) = plt.subplots(2, 1, figsize=(20, 8), sharex=True)
-    rolling_mean = pd.Series(episodes_total_steps).rolling(window, center=True).mean().dropna().tolist()
+    rolling_mean = (
+        pd.Series(episodes_total_steps)
+        .rolling(window, center=True)
+        .mean()
+        .dropna()
+        .tolist()
+    )
     ax.plot(rolling_mean)
     ax.scatter(
         [i for i in target_reset_episodes if i < len(rolling_mean)],
         [rolling_mean[i] for i in target_reset_episodes if i < len(rolling_mean)],
-        c="red"
+        c="red",
     )
-    ax_decay.plot(pd.Series([epsilon * pow(1 - decay_factor, i) for i in range(len(episodes_total_steps))]))
+    ax_decay.plot(
+        pd.Series(
+            [
+                epsilon * pow(1 - decay_factor, i)
+                for i in range(len(episodes_total_steps))
+            ]
+        )
+    )
     ax.set_title("Distribution on TOTAL STEPS over time")
     ax_decay.set_title("Decay of the EPSILON parameter")
-    fig.show();
+    fig.show()
+
 
 def plot_reward(rewards: list, window=5) -> None:
     fig, ax = plt.subplots(1, 1, figsize=(20, 8))
     ax.plot(
         # [i for i, _ in enumerate(log["losses"])],
-        pd.Series(rewards).rolling(window, center=True).mean().dropna(),
+        pd.Series(rewards)
+        .rolling(window, center=True)
+        .mean()
+        .dropna(),
     )
     ax.set_title("Distribution of total reward over multiple episodes")
-    fig.show();
+    fig.show()
