@@ -46,6 +46,8 @@ class GameSimulator:
         self.game_end_reward = game_end_reward
         self.is_conv = is_conv
 
+        self.moves = 0
+
         self.board = np.zeros([4, 4], "int64")
         self.board = self.__add_random(self.board)
 
@@ -190,4 +192,7 @@ class GameSimulator:
         return reward, done
 
     def move(self, action: str) -> Tuple[int, bool]:
-        return self.actions[action]()
+        assert action in self.actions.keys(), f"`{action}` is not a valid action"
+        reward, done = (self.actions[action])()
+        self.moves += 1
+        return (reward, done) if self.moves < self.max_moves else (reward, True)
